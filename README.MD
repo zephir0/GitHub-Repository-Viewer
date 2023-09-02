@@ -14,7 +14,6 @@ Before you begin, ensure you have met the following requirements:
 
 - Java Development Kit (JDK) installed (Java 8 or higher).
 - Apache Maven installed.
-- [Spring Boot](https://spring.io/projects/spring-boot) framework.
 
 ## Getting Started
 
