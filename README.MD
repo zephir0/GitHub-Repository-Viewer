@@ -46,7 +46,7 @@ GET /api/repositories/{username}: Retrieve a list of GitHub repositories for the
 
 1. Example request: 
       ```bash
-      curl http://localhost:8080/api/repositories/{username}
+      curl http://localhost:8081/api/repositories/{username}
 
 Replace {username} with the GitHub username you want to retrieve repositories for.
 
