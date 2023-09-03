@@ -70,7 +70,6 @@ class GitHubServiceTest {
         String username = "nonExistingUser";
         String apiUrl = "https://api.github.com/users/" + username;
 
-        // Simulate a 404 Not Found exception when the user does not exist
         when(restTemplate.getForEntity(apiUrl, String.class))
                 .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
 

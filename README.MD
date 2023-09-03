@@ -14,7 +14,6 @@ Before you begin, ensure you have met the following requirements:
 
 - Java Development Kit (JDK) installed (Java 8 or higher).
 - Apache Maven installed.
-- [Spring Boot](https://spring.io/projects/spring-boot) framework.
 
 ## Getting Started
 
@@ -22,7 +21,7 @@ To get started with this application, follow these steps:
 
 1. Clone this repository to your local machine:
    ```bash
-   git clone https://github.com/yourusername/Github-Repository-Viewer.git
+   git clone https://github.com/zephir0/Github-Repository-Viewer.git
    
 2. Navigate to the project directory:
     ```bash
@@ -47,7 +46,7 @@ GET /api/repositories/{username}: Retrieve a list of GitHub repositories for the
 
 1. Example request: 
       ```bash
-      curl http://localhost:8080/api/repositories/{username}
+      curl http://localhost:8081/api/repositories/{username}
 
 Replace {username} with the GitHub username you want to retrieve repositories for.
 
