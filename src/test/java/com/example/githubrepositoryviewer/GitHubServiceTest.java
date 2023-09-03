@@ -1,5 +1,6 @@
 package com.example.githubrepositoryviewer;
 
+import com.example.githubrepositoryviewer.api_key.GitHubApiKey;
 import com.example.githubrepositoryviewer.mappers.GitHubMapper;
 import com.example.githubrepositoryviewer.models.*;
 import com.example.githubrepositoryviewer.services.GitHubService;
@@ -8,24 +9,28 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-class GitHubServiceTest {
+public class GitHubServiceTest {
 
     @Mock
     private RestTemplate restTemplate;
 
     @Mock
     private GitHubMapper gitHubMapper;
+
+    @Mock
+    private GitHubApiKey gitHubApiKey;
 
     @InjectMocks
     private GitHubService gitHubService;
@@ -39,85 +44,169 @@ class GitHubServiceTest {
     void testGetUserRepositories_Success() {
         // Arrange
         String username = "testUser";
-        String apiUrl = "https://api.github.com/users/" + username;
-        String reposUrl = "https://api.github.com/users/" + username + "/repos";
 
-        ResponseEntity<String> userExistsResponse = new ResponseEntity<>("", HttpStatus.OK);
-        when(restTemplate.getForEntity(apiUrl, String.class)).thenReturn(userExistsResponse);
+        when(restTemplate.exchange(eq("https://api.github.com/users/" + username), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(HttpStatus.OK));
 
-        List<GitHubRepositoryDTO> mockRepositoryDTOs = new ArrayList<>();
-        mockRepositoryDTOs.add(new GitHubRepositoryDTO("repo1", new GitHubOwnerDto("login"), false, new ArrayList<>()));
-        mockRepositoryDTOs.add(new GitHubRepositoryDTO("repo2", new GitHubOwnerDto("login"), false, new ArrayList<>()));
+        GitHubRepositoryDTO mockRepoDTO = mock(GitHubRepositoryDTO.class);
+        GitHubRepositoryDTO[] repoArray = new GitHubRepositoryDTO[]{mockRepoDTO};
+        when(mockRepoDTO.isFork()).thenReturn(false);
+        when(mockRepoDTO.owner()).thenReturn(new GitHubOwnerDto("testUser"));
+        when(mockRepoDTO.name()).thenReturn("mockRepo");
 
-        when(restTemplate.getForObject(reposUrl, GitHubRepositoryDTO[].class)).thenReturn(mockRepositoryDTOs.toArray(new GitHubRepositoryDTO[0]));
+        GitHubRepository mockRepo = mock(GitHubRepository.class);
 
-        GitHubRepository mockRepository1 = new GitHubRepository();
-        GitHubRepository mockRepository2 = new GitHubRepository();
+        when(restTemplate.exchange(eq("https://api.github.com/users/" + username + "/repos"), eq(HttpMethod.GET), any(HttpEntity.class), eq(GitHubRepositoryDTO[].class)))
+                .thenReturn(new ResponseEntity<>(repoArray, HttpStatus.OK));
 
-        when(gitHubMapper.mapToGitHubRepositoryWithBranches(any(), anyList())).thenReturn(mockRepository1, mockRepository2);
+        when(restTemplate.exchange(startsWith("https://api.github.com/repos/"), eq(HttpMethod.GET), any(HttpEntity.class), eq(GitHubBranchDTO[].class)))
+                .thenReturn(new ResponseEntity<>(new GitHubBranchDTO[0], HttpStatus.OK));
+
+        when(gitHubMapper.mapToGitHubRepositoryWithBranches(any(), anyList())).thenReturn(mockRepo);
 
         // Act
-        List<GitHubRepository> repositories = gitHubService.getUserRepositories(username);
+        List<GitHubRepository> result = gitHubService.getUserRepositories(username);
 
         // Assert
-        assertFalse(repositories.isEmpty());
-        assertEquals(2, repositories.size());
+        assertFalse(result.isEmpty());
+        assertEquals(mockRepo, result.get(0));
     }
 
     @Test
-    void testGetUserRepositories_User_Not_Found() {
+    void testGetUserRepositories_UserDoesNotExist() {
         // Arrange
-        String username = "nonExistingUser";
-        String apiUrl = "https://api.github.com/users/" + username;
+        String username = "invalidUser";
+        when(restTemplate.exchange(anyString(), any(), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(HttpStatus.NOT_FOUND));
 
-        when(restTemplate.getForEntity(apiUrl, String.class))
-                .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+        // Act
+        List<GitHubRepository> result = gitHubService.getUserRepositories(username);
 
-        // Act and Assert
-        assertThrows(HttpClientErrorException.class, () -> gitHubService.getUserRepositories(username));
+        // Assert
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testDoesUserExist_UserExists() {
+        // Arrange
+        String username = "testUser";
+        when(restTemplate.exchange(anyString(), any(), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(HttpStatus.OK));
+        // Act
+        boolean result = gitHubService.doesUserExist(username);
+        // Assert
+        assertTrue(result);
+    }
+
+    @Test
+    void testDoesUserExist_UserDoesNotExist() {
+        // Arrange
+        String username = "testUser";
+        when(restTemplate.exchange(anyString(), any(), any(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(HttpStatus.NOT_FOUND));
+        // Act
+        boolean result = gitHubService.doesUserExist(username);
+        // Assert
+        assertFalse(result);
+    }
+
+
+    @Test
+    void testFetchUserRepositories_Success() {
+        // Arrange
+        String username = "testUser";
+        String apiUrl = "https://api.github.com/users/" + username + "/repos";
+
+        GitHubOwnerDto mockOwner = new GitHubOwnerDto(username);
+        GitHubRepositoryDTO mockRepositoryDTO1 = new GitHubRepositoryDTO(
+                "mockRepo1",
+                mockOwner,
+                false,
+                Collections.emptyList()
+        );
+
+        GitHubRepositoryDTO mockRepositoryDTO2 = new GitHubRepositoryDTO(
+                "mockRepo2",
+                mockOwner,
+                true,
+                Collections.emptyList()
+        );
+
+        GitHubRepositoryDTO[] mockRepositories = {mockRepositoryDTO1, mockRepositoryDTO2};
+
+        when(restTemplate.exchange(eq(apiUrl), eq(HttpMethod.GET), any(HttpEntity.class), eq(GitHubRepositoryDTO[].class)))
+                .thenReturn(new ResponseEntity<>(mockRepositories, HttpStatus.OK));
+
+        GitHubRepository mockRepo = mock(GitHubRepository.class);
+        when(gitHubMapper.mapToGitHubRepositoryWithBranches(eq(mockRepositoryDTO1), anyList()))
+                .thenReturn(mockRepo);
+
+        when(restTemplate.exchange(startsWith("https://api.github.com/repos/"), eq(HttpMethod.GET), any(HttpEntity.class), eq(GitHubBranchDTO[].class)))
+                .thenReturn(new ResponseEntity<>(new GitHubBranchDTO[0], HttpStatus.OK));
+
+        // Act
+        List<GitHubRepository> repos = gitHubService.fetchUserRepositories(username);
+
+        // Assert
+        assertEquals(1, repos.size());
+        assertEquals(mockRepo, repos.get(0));
+    }
+
+    @Test
+    void testFetchUserRepositories_EmptyRepositories() {
+        // Arrange
+        String username = "testUser";
+
+        GitHubRepositoryDTO[] repoArray = new GitHubRepositoryDTO[]{};
+
+        when(restTemplate.exchange(anyString(), any(), any(), eq(GitHubRepositoryDTO[].class)))
+                .thenReturn(new ResponseEntity<>(repoArray, HttpStatus.OK));
+        // Act
+        List<GitHubRepository> result = gitHubService.fetchUserRepositories(username);
+
+        // Assert
+        assertTrue(result.isEmpty());
     }
 
     @Test
     void testGetUserBranches_Success() {
         // Arrange
         String login = "testUser";
-        String repositoryName = "testRepo";
-        String branchesUrl = "https://api.github.com/repos/" + login + "/" + repositoryName + "/branches";
+        String repoName = "testRepo";
 
-        List<GitHubBranchDTO> mockBranchDTOs = new ArrayList<>();
-        mockBranchDTOs.add(new GitHubBranchDTO("branch1", new GitHubBranchDTO.Commit("commit1")));
-        mockBranchDTOs.add(new GitHubBranchDTO("branch2", new GitHubBranchDTO.Commit("commit2")));
+        GitHubBranchDTO mockBranchDTO = mock(GitHubBranchDTO.class);
+        GitHubBranchDTO[] branchArray = new GitHubBranchDTO[]{mockBranchDTO};
 
-        when(restTemplate.getForObject(branchesUrl, GitHubBranchDTO[].class)).thenReturn(mockBranchDTOs.toArray(new GitHubBranchDTO[0]));
+        GitHubBranch mockBranch = mock(GitHubBranch.class);
 
-        GitHubBranch mockBranch1 = new GitHubBranch();
-        GitHubBranch mockBranch2 = new GitHubBranch();
-
-        when(gitHubMapper.mapToGitHubBranch(any())).thenReturn(mockBranch1, mockBranch2);
+        when(restTemplate.exchange(anyString(), any(), any(), eq(GitHubBranchDTO[].class)))
+                .thenReturn(new ResponseEntity<>(branchArray, HttpStatus.OK));
+        when(gitHubMapper.mapToGitHubBranch(mockBranchDTO)).thenReturn(mockBranch);
 
         // Act
-        List<GitHubBranch> branches = gitHubService.getUserBranches(login, repositoryName);
+        List<GitHubBranch> result = gitHubService.getUserBranches(login, repoName);
 
         // Assert
-        assertFalse(branches.isEmpty());
-        assertEquals(2, branches.size());
+        assertFalse(result.isEmpty());
+        assertEquals(mockBranch, result.get(0));
     }
 
     @Test
-    void testGetUserBranches_Invalid_Repository() {
+    void testGetUserBranches_NoBranches() {
         // Arrange
         String login = "testUser";
-        String repositoryName = "invalidRepo";
-        String branchesUrl = "https://api.github.com/repos/" + login + "/" + repositoryName + "/branches";
+        String repoName = "testRepo";
+        String branchesUrl = "https://api.github.com/repos/" + login + "/" + repoName + "/branches";
 
-        when(restTemplate.getForObject(branchesUrl, GitHubBranchDTO[].class)).thenReturn(new GitHubBranchDTO[0]);
+        GitHubBranchDTO[] branchArray = new GitHubBranchDTO[]{};
+
+        when(restTemplate.exchange(eq(branchesUrl), eq(HttpMethod.GET), any(HttpEntity.class), eq(GitHubBranchDTO[].class)))
+                .thenReturn(new ResponseEntity<>(branchArray, HttpStatus.OK));
 
         // Act
-        List<GitHubBranch> branches = gitHubService.getUserBranches(login, repositoryName);
+        List<GitHubBranch> result = gitHubService.getUserBranches(login, repoName);
 
         // Assert
-        assertTrue(branches.isEmpty());
+        assertTrue(result.isEmpty());
     }
-
-
 }

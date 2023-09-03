@@ -19,7 +19,7 @@ public class GitHubController {
     private final GitHubService gitHubService;
 
     @GetMapping(value = "/repositories/{username}")
-    public ResponseEntity<List<GitHubRepository>> listUserRepositories(@PathVariable String username) {
+    public ResponseEntity<List<GitHubRepository>> getUserRepositories(@PathVariable String username) {
         List<GitHubRepository> repositories = gitHubService.getUserRepositories(username);
         return new ResponseEntity<>(repositories, HttpStatus.OK);
     }
