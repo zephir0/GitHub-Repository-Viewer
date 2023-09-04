@@ -1,6 +1,8 @@
 package com.example.githubrepositoryviewer;
 
+import com.example.githubrepositoryviewer.configs.filters.AcceptHeaderCheckFilter;
 import com.example.githubrepositoryviewer.controllers.GitHubController;
+import com.example.githubrepositoryviewer.exception_handlers.CustomExceptionHandler;
 import com.example.githubrepositoryviewer.models.GitHubRepository;
 import com.example.githubrepositoryviewer.services.GitHubService;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,25 +21,29 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 public class GitHubControllerTest {
 
-    private MockMvc mockMvc;
 
+    private MockMvc mockMvc;
     @Mock
     private GitHubService gitHubService;
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.initMocks(this);
-        mockMvc = MockMvcBuilders.standaloneSetup(new GitHubController(gitHubService)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new GitHubController(gitHubService))
+                .addFilter(new AcceptHeaderCheckFilter())
+                .setControllerAdvice(new CustomExceptionHandler())
+                .build();
     }
 
     @Test
-    public void testListUserRepositoriesSuccess() throws Exception {
+    public void testListUserRepositories_Success() throws Exception {
         // Arrange
         GitHubRepository gitHubRepository = new GitHubRepository();
         gitHubRepository.setName("repositoryName");
@@ -57,7 +63,7 @@ public class GitHubControllerTest {
     }
 
     @Test
-    public void testGetUserRepositories_USER_NOT_FOUND() throws Exception {
+    public void testGetUserRepositories_UserNotFound() throws Exception {
         Mockito.doThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND, "User profile was not found."))
                 .when(gitHubService).doesUserExist("");
 
@@ -68,10 +74,26 @@ public class GitHubControllerTest {
     }
 
     @Test
-    public void testGetUserRepositories_NOT_ACCEPTABLE() throws Exception {
+    public void testGetUserRepositories_NotAcceptableMediaType() throws Exception {
         // Make an HTTP GET request to the controller with an invalid header.
         mockMvc.perform(get("/api/repositories/{username}", "testuser")
                         .accept(MediaType.APPLICATION_XML))
                 .andExpect(status().isNotAcceptable());
     }
+
+    @Test
+    public void testGetUserRepositories_InvalidApiKey() throws Exception {
+        // Given
+        String username = "testUser";
+
+        Mockito.doThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED))
+                .when(gitHubService).getUserRepositories(username);
+
+        // When & Then
+        mockMvc.perform(get("/api/repositories/{username}", username).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isUnauthorized());
+    }
+
 }
+
+
