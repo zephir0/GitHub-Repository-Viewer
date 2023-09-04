@@ -6,6 +6,7 @@ import com.example.githubrepositoryviewer.services.GitHubService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -57,11 +58,11 @@ public class GitHubControllerTest {
 
     @Test
     public void testGetUserRepositories_USER_NOT_FOUND() throws Exception {
-        when(gitHubService.doesUserExist(anyString()))
-                .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND, "User profile was not found."));
+        Mockito.doThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND, "User profile was not found."))
+                .when(gitHubService).doesUserExist("");
 
         // Make an HTTP GET request to the controller.
-        mockMvc.perform(get("/api/repositories/{username}", anyString())
+        mockMvc.perform(get("/api/repositories/{username}", "")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound());
     }

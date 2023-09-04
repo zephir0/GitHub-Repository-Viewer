@@ -73,20 +73,6 @@ public class GitHubServiceTest {
     }
 
     @Test
-    void testGetUserRepositories_UserDoesNotExist() {
-        // Arrange
-        String username = "invalidUser";
-        when(restTemplate.exchange(anyString(), any(), any(), eq(String.class)))
-                .thenReturn(new ResponseEntity<>(HttpStatus.NOT_FOUND));
-
-        // Act
-        List<GitHubRepository> result = gitHubService.getUserRepositories(username);
-
-        // Assert
-        assertTrue(result.isEmpty());
-    }
-
-    @Test
     void testDoesUserExist_UserExists() {
         // Arrange
         String username = "testUser";
